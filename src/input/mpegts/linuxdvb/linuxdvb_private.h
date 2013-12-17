@@ -229,6 +229,8 @@ void linuxdvb_device_save ( linuxdvb_device_t *ld );
 linuxdvb_device_t *linuxdvb_device_create0
   (const char *uuid, htsmsg_t *conf);
 
+void linuxdvb_device_delete ( linuxdvb_device_t *ld, int keepconf );
+
 linuxdvb_device_t * linuxdvb_device_find_by_adapter ( int a );
 
 #define LINUXDVB_SUBSYS_FE  0x01
@@ -238,6 +240,8 @@ void linuxdvb_adapter_save ( linuxdvb_adapter_t *la, htsmsg_t *m );
 
 linuxdvb_adapter_t *linuxdvb_adapter_create0
   ( linuxdvb_device_t *ld, const char *uuid, htsmsg_t *conf );
+
+void linuxdvb_adapter_delete ( linuxdvb_adapter_t *la );
 
 void linuxdvb_adapter_added (int a);
 

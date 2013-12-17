@@ -31,8 +31,11 @@ api_input_hw_tree ( void )
 {
   tvh_hardware_t *th;
   idnode_set_t *is = idnode_set_create();
-  TVH_HARDWARE_FOREACH(th)
+printf("LIST\n");
+  TVH_HARDWARE_FOREACH(th) {
+    printf("HW %p\n", th);
     idnode_set_add(is, &th->th_id, NULL);
+  }
   return is;
 }
 

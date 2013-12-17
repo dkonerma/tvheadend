@@ -22,6 +22,7 @@
 #include "linuxdvb_private.h"
 #include "queue.h"
 #include "settings.h"
+#include "tvhpoll.h"
 
 #include <sys/types.h>
 #include <sys/ioctl.h>
@@ -29,6 +30,7 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <libudev.h>
   
 /* ***************************************************************************
  * Device/BUS Info
@@ -250,19 +252,15 @@ linuxdvb_device_create0 ( const char *uuid, htsmsg_t *conf )
   htsmsg_field_t *f;
 
   /* Create */
-  ld = calloc(1, sizeof(linuxdvb_device_t));
-  if (idnode_insert(&ld->th_id, uuid, &linuxdvb_device_class)) {
-    free(ld);
-    return NULL;
-  }
-  LIST_INSERT_HEAD(&tvh_hardware, (tvh_hardware_t*)ld, th_link);
-
+  ld = tvh_hardware_create0(calloc(1, sizeof(linuxdvb_device_t)),
+                            &linuxdvb_device_class, uuid, conf);
+  if (!ld) return NULL;
+                            
   /* No config */
   if (!conf)
     return ld;
 
   /* Load config */
-  idnode_load(&ld->th_id, conf);
   get_min_dvb_adapter(&ld->ld_devid);
 
   /* Adapters */
@@ -274,6 +272,29 @@ linuxdvb_device_create0 ( const char *uuid, htsmsg_t *conf )
   }
 
   return ld;
+}
+
+void
+linuxdvb_device_delete ( linuxdvb_device_t *ld, int keepconf )
+{
+  linuxdvb_adapter_t *la;
+  lock_assert(&global_lock);
+
+  /* Remove config */
+  if (!keepconf)
+    hts_settings_remove("input/linuxdvb/devices/%s",
+                        idnode_uuid_as_str(&ld->th_id));
+
+  /* Delete adapters */
+  LIST_FOREACH(la, &ld->ld_adapters, la_link)
+    linuxdvb_adapter_delete(la);
+
+  /* Parent */
+  tvh_hardware_delete((tvh_hardware_t*)ld);
+
+  /* Free memory */
+  free(ld->ld_devid.di_id);
+  free(ld);
 }
 
 static linuxdvb_device_t *
@@ -322,14 +343,82 @@ linuxdvb_device_find_by_adapter ( int a )
   return ld;
 }
 
+static void*
+linuxdvb_udev ( void *p )
+{
+  int n, a;
+  struct udev *udev;
+	struct udev_device *dev;
+  struct udev_monitor *mon;
+  tvhpoll_t *pd;
+  tvhpoll_event_t ev;
+  const char *path, *act;
+  linuxdvb_device_t *ld;
+	
+	/* Create the udev object */
+	udev = udev_new();
+	if (!udev) {
+    tvherror("linuxdvb", "udev setup failed, no dynamic support");
+    return NULL;
+	}
+  
+  /* Setup monitor */
+	mon = udev_monitor_new_from_netlink(udev, "udev");
+	udev_monitor_filter_add_match_subsystem_devtype(mon, "dvb", NULL);
+	udev_monitor_enable_receiving(mon);
+
+  /* Setup poll */
+  pd        = tvhpoll_create(1);
+  ev.fd     = udev_monitor_get_fd(mon);
+  ev.events = TVHPOLL_IN;
+  tvhpoll_add(pd, &ev, 1);
+
+  /* Loop waiting for updates */
+	while (1) {
+    n = tvhpoll_wait(pd, &ev, 1, -1);
+    if (n < 0) {
+      tvherror("linuxdvb", "udev update failed, exiting");
+      break;
+    }
+    if (!n) continue;
+
+    /* Get device */
+	  dev = udev_monitor_receive_device(mon);
+		if (dev) {
+      pthread_mutex_lock(&global_lock);
+			path = udev_device_get_devnode(dev);
+			act  = udev_device_get_action(dev);
+      printf("path = %s\n", path);
+      if (sscanf(path, "/dev/dvb/adapter%d", &a) == 1 &&
+          strstr(path, "frontend0")) {
+        if (!strcmp("add", act)) {
+          linuxdvb_adapter_added(a);
+        } else if (!strcmp("remove", act)) {
+          if ((ld = linuxdvb_device_find_by_adapter(a)))
+            linuxdvb_device_delete(ld, 1);
+          // TODO
+        }
+      }
+      pthread_mutex_unlock(&global_lock);
+			udev_device_unref(dev);
+    }
+	}
+
+  return NULL;
+}
+
 void linuxdvb_device_init ( int adapter_mask )
 {
   int a;
   DIR *dp;
+#if 0
   htsmsg_t *s, *e;
   htsmsg_field_t *f;
+#endif
+  pthread_t tid;
 
   /* Load configuration */
+#if 0
   if ((s = hts_settings_load_r(1, "input/linuxdvb/devices"))) {
     HTSMSG_FOREACH(f, s) {
       if (!(e = htsmsg_get_map_by_field(f)))  continue;
@@ -337,6 +426,7 @@ void linuxdvb_device_init ( int adapter_mask )
     }
     htsmsg_destroy(s);
   }
+#endif
 
   /* Scan for hardware */
   if ((dp = opendir("/dev/dvb"))) {
@@ -350,4 +440,5 @@ void linuxdvb_device_init ( int adapter_mask )
   }
 
   // TODO: add udev support for hotplug
+  tvhthread_create(&tid, NULL, linuxdvb_udev, NULL, 1);
 }

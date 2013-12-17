@@ -160,6 +160,14 @@ linuxdvb_adapter_create0
 }
 
 /*
+ * Remove
+ */
+void
+linuxdvb_adapter_delete ( linuxdvb_adapter_t *la )
+{
+}
+
+/*
  * Find existing adapter/device entry
  */
 static linuxdvb_adapter_t *
@@ -205,6 +213,7 @@ linuxdvb_adapter_added ( int adapter )
   char fe_path[512], dmx_path[512], dvr_path[512];
   linuxdvb_adapter_t *la = NULL;
   struct dvb_frontend_info dfi;
+printf("linuxdvb_adapter_added(%d)\n", adapter);
 
   /* Process each frontend */
   for (i = 0; i < 32; i++) {
@@ -254,8 +263,8 @@ linuxdvb_adapter_added ( int adapter )
     }
 
     /* Create frontend */
-    tvhlog(LOG_DEBUG, "linuxdvb", "fe_create(%p, %s, %s, %s)",
-           la, fe_path, dmx_path, dvr_path);
+    tvhdebug("linuxdvb", "fe_create(%p, %s, %s, %s)",
+             la, fe_path, dmx_path, dvr_path);
     save |= linuxdvb_frontend_added(la, i, fe_path, dmx_path, dvr_path, &dfi);
   }
 

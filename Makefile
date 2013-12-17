@@ -32,7 +32,7 @@ CFLAGS  += -Wmissing-prototypes -fms-extensions
 CFLAGS  += -g -funsigned-char -O2 
 CFLAGS  += -D_FILE_OFFSET_BITS=64
 CFLAGS  += -I${BUILDDIR} -I${ROOTDIR}/src -I${ROOTDIR}
-LDFLAGS += -lrt -ldl -lpthread -lm
+LDFLAGS += -lrt -ldl -lpthread -lm -ludev
 
 vpath %.c $(ROOTDIR)
 vpath %.h $(ROOTDIR)
