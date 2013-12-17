@@ -76,6 +76,7 @@ struct tvh_input {
 struct tvh_hardware {
   idnode_t                     th_id;
   LIST_ENTRY(tvh_hardware)     th_link;
+  int                          th_active;
 };
 
 void *tvh_hardware_create0

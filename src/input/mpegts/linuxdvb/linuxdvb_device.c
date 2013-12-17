@@ -243,7 +243,6 @@ void linuxdvb_device_save ( linuxdvb_device_t *ld )
   htsmsg_destroy(m);
 }
 
-
 linuxdvb_device_t *
 linuxdvb_device_create0 ( const char *uuid, htsmsg_t *conf )
 {
@@ -255,7 +254,7 @@ linuxdvb_device_create0 ( const char *uuid, htsmsg_t *conf )
   ld = tvh_hardware_create0(calloc(1, sizeof(linuxdvb_device_t)),
                             &linuxdvb_device_class, uuid, conf);
   if (!ld) return NULL;
-                            
+
   /* No config */
   if (!conf)
     return ld;
@@ -411,14 +410,14 @@ void linuxdvb_device_init ( int adapter_mask )
 {
   int a;
   DIR *dp;
-#if 0
+#if 1
   htsmsg_t *s, *e;
   htsmsg_field_t *f;
 #endif
   pthread_t tid;
 
   /* Load configuration */
-#if 0
+#if 1
   if ((s = hts_settings_load_r(1, "input/linuxdvb/devices"))) {
     HTSMSG_FOREACH(f, s) {
       if (!(e = htsmsg_get_map_by_field(f)))  continue;
