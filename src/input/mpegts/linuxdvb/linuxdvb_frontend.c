@@ -462,7 +462,11 @@ linuxdvb_frontend_monitor ( void *aux )
   /* Get current status */
   if (ioctl(lfe->lfe_fe_fd, FE_READ_STATUS, &fe_status) == -1) {
     tvhwarn("linuxdvb", "%s - FE_READ_STATUS error %s", buf, strerror(errno));
-    /* TODO: check error value */
+    if (mmi)
+      mmi->mmi_mux->mm_stop(mmi->mmi_mux, 1);
+    close(lfe->lfe_fe_fd);
+    lfe->lfe_fe_fd = -1;
+    gtimer_disarm(&lfe->lfe_monitor_timer);
     return;
 
   } else if (fe_status & FE_HAS_LOCK)

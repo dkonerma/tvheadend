@@ -23,6 +23,7 @@
 #include "queue.h"
 #include "settings.h"
 #include "tvhpoll.h"
+#include "notify.h"
 
 #include <sys/types.h>
 #include <sys/ioctl.h>
@@ -119,6 +120,13 @@ get_device_info ( device_info_t *di, int a )
       tvhlog(LOG_WARNING, "linuxdvb",
              "could not determine host connection for adapter%d", a);
     }
+  }
+
+  /* Get syspath */
+  snprintf(path, sizeof(path), "/sys/class/dvb/dvb%d.frontend0", a);
+  if ((c = readlink(path, buf, sizeof(buf)))) {
+    buf[c] = '\0';
+    strcpy(di->di_syspath, buf+5);
   }
 
   /* Get Path */
@@ -308,6 +316,20 @@ linuxdvb_device_find_by_hwid ( const char *hwid )
   return NULL;
 }
 
+static linuxdvb_device_t *
+linuxdvb_device_find_active_by_path ( const char *path )
+{
+  tvh_hardware_t *lh;
+  LIST_FOREACH(lh, &tvh_hardware, th_link) {
+    if (!lh->th_active) continue;
+    if (idnode_is_instance(&lh->th_id, &linuxdvb_device_class)) {
+      if (!strcmp(path, ((linuxdvb_device_t*)lh)->ld_devid.di_syspath ?: ""))
+        return (linuxdvb_device_t*)lh;
+    }
+  }
+  return NULL;
+}
+
 linuxdvb_device_t *
 linuxdvb_device_find_by_adapter ( int a )
 {
@@ -322,6 +344,7 @@ linuxdvb_device_find_by_adapter ( int a )
     free(dev.di_id);
     if (ld->ld_devid.di_bus == BUS_NONE) {
       strcpy(ld->ld_devid.di_path, dev.di_path);
+      strcpy(ld->ld_devid.di_syspath, dev.di_syspath);
       ld->ld_devid.di_bus        = dev.di_bus;
       ld->ld_devid.di_dev         = dev.di_dev;
       ld->ld_devid.di_min_adapter = dev.di_min_adapter;
@@ -387,14 +410,17 @@ linuxdvb_udev ( void *p )
       pthread_mutex_lock(&global_lock);
 			path = udev_device_get_devnode(dev);
 			act  = udev_device_get_action(dev);
-      printf("path = %s\n", path);
       if (sscanf(path, "/dev/dvb/adapter%d", &a) == 1 &&
           strstr(path, "frontend0")) {
         if (!strcmp("add", act)) {
-          linuxdvb_adapter_added(a);
+          (void)linuxdvb_adapter_added(a);
         } else if (!strcmp("remove", act)) {
-          if ((ld = linuxdvb_device_find_by_adapter(a)))
-            linuxdvb_device_delete(ld, 1);
+          path = udev_device_get_devpath(dev);
+          if ((ld = linuxdvb_device_find_active_by_path(path))) {
+            tvhdebug("linuxdvb", "remove device %s", path);
+            ld->th_active = 0;
+            notify_reload("hardware");
+          }
           // TODO
         }
       }

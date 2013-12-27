@@ -47,6 +47,7 @@ typedef struct device_info
 {
   char    *di_id;
   char     di_path[128];
+  char     di_syspath[256];
   enum {
     BUS_NONE = 0,
     BUS_PCI,
@@ -243,7 +244,7 @@ linuxdvb_adapter_t *linuxdvb_adapter_create0
 
 void linuxdvb_adapter_delete ( linuxdvb_adapter_t *la );
 
-void linuxdvb_adapter_added (int a);
+linuxdvb_adapter_t *linuxdvb_adapter_added (int a);
 
 int  linuxdvb_adapter_is_free        ( linuxdvb_adapter_t *la );
 int  linuxdvb_adapter_current_weight ( linuxdvb_adapter_t *la );

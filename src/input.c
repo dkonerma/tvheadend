@@ -38,7 +38,6 @@ tvh_hardware_create0
   }
   
   /* Update list */
-  printf("CREATE %p\n", th);
   LIST_INSERT_HEAD(&tvh_hardware, th, th_link);
   
   /* Load config */
@@ -58,7 +57,7 @@ tvh_hardware_create0
 void
 tvh_hardware_delete ( tvh_hardware_t *th )
 {
-  printf("REMOVE %p\n", th);
+  // TODO
   LIST_REMOVE(th, th_link);
   idnode_unlink(&th->th_id);
   notify_reload("hardware");

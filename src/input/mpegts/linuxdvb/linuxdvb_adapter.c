@@ -21,6 +21,7 @@
 #include "input.h"
 #include "linuxdvb_private.h"
 #include "queue.h"
+#include "notify.h"
 
 #include <sys/types.h>
 #include <sys/ioctl.h>
@@ -206,14 +207,13 @@ linuxdvb_adapter_find_by_number ( int adapter )
 /*
  * Load an adapter
  */
-void
+linuxdvb_adapter_t *
 linuxdvb_adapter_added ( int adapter )
 {
   int i, r, fd, save = 0;
   char fe_path[512], dmx_path[512], dvr_path[512];
   linuxdvb_adapter_t *la = NULL;
   struct dvb_frontend_info dfi;
-printf("linuxdvb_adapter_added(%d)\n", adapter);
 
   /* Process each frontend */
   for (i = 0; i < 32; i++) {
@@ -252,8 +252,9 @@ printf("linuxdvb_adapter_added(%d)\n", adapter);
     if (!la) {
       if (!(la = linuxdvb_adapter_find_by_number(adapter))) {
         tvhlog(LOG_ERR, "linuxdvb", "failed to find/create adapter%d", adapter);
-        return;
+        return NULL;
       }
+      la->la_device->th_active = 1;
       la->la_dvb_number = adapter;
       if (!la->la_name) {
         char buf[512];
@@ -270,4 +271,6 @@ printf("linuxdvb_adapter_added(%d)\n", adapter);
 
   if (save)
     linuxdvb_device_save(la->la_device);
+  notify_reload("hardware");
+  return la;
 }
